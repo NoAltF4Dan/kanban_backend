@@ -5,6 +5,19 @@ from django.contrib.auth.models import User
 from django.contrib.auth.password_validation import validate_password
 from rest_framework.authtoken.models import Token
 
+STATUS_CHOICES = [
+    ("to-do", "To Do"),
+    ("in-progress", "In Progress"),
+    ("review", "Review"),
+    ("done", "Done"),
+]
+
+PRIORITY_CHOICES = [
+    ("low", "Low"),
+    ("medium", "Medium"),
+    ("high", "High"),
+]
+
 class BoardSerializer(serializers.ModelSerializer):
     owner_id = serializers.ReadOnlyField(source='owner.id')
     members = serializers.PrimaryKeyRelatedField(
@@ -34,22 +47,13 @@ class BoardSerializer(serializers.ModelSerializer):
         return obj.members.count()
 
     def get_ticket_count(self, obj):
-        total = 0
-        for column in obj.columns.all():
-            total += column.tasks.count()
-        return total
+        return obj.tasks.count()
 
     def get_tasks_to_do_count(self, obj):
-        total = 0
-        for column in obj.columns.all():
-            total += column.tasks.filter(status='todo').count()
-        return total
+        return obj.tasks.filter(status="to-do").count()
 
     def get_tasks_high_prio_count(self, obj):
-        total = 0
-        for column in obj.columns.all():
-            total += column.tasks.filter(priority='high').count()
-        return total
+        return obj.tasks.filter(priority="high").count()
      
 class ColumnSerializer(serializers.ModelSerializer):
     position = serializers.IntegerField(source="order")
@@ -83,8 +87,8 @@ class SimpleUserSerializer(serializers.ModelSerializer):
 
 class TaskSerializer(serializers.ModelSerializer):
     board = serializers.PrimaryKeyRelatedField(queryset=Board.objects.all(), required=True)
-    status = serializers.ChoiceField(choices=Task.STATUS_CHOICES)
-
+    status = serializers.ChoiceField(choices=STATUS_CHOICES)
+    priority = serializers.ChoiceField(choices=PRIORITY_CHOICES)
     assignee = SimpleUserSerializer(read_only=True)
     reviewer = SimpleUserSerializer(read_only=True)
 
@@ -142,5 +146,5 @@ class BoardDetailSerializer(BoardSerializer):
         fields = BoardSerializer.Meta.fields + ["owner_data", "members_data", "tasks"]
 
     def get_tasks(self, obj):
-        tasks = Task.objects.filter(column__board=obj)
-        return TaskSerializer(tasks, many=True).data
+        return TaskSerializer(obj.tasks.all(), many=True).data
+

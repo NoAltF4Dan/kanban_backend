@@ -1,5 +1,6 @@
-from django.shortcuts import render
+from django.shortcuts import render, get_object_or_404
 from rest_framework import status, generics
+from rest_framework.generics import DestroyAPIView
 from django.db.models import Q
 from rest_framework.decorators import action
 from rest_framework.exceptions import PermissionDenied
@@ -26,12 +27,12 @@ class BoardViewSet(ModelViewSet):
 
     def perform_create(self, serializer):
         serializer.save(owner=self.request.user)
-        
-def get_serializer_class(self):
-    if self.action in ["retrieve", "update", "partial_update"]:
-        from .serializers import BoardDetailSerializer
-        return BoardDetailSerializer
-    return super().get_serializer_class()
+
+    def get_serializer_class(self):
+        if self.action in ["retrieve", "update", "partial_update"]:
+            from .serializers import BoardDetailSerializer
+            return BoardDetailSerializer
+        return super().get_serializer_class()
 
 class ColumnViewSet(ModelViewSet):
     serializer_class    = ColumnSerializer
@@ -180,3 +181,16 @@ class TaskCommentCreateView(APIView):
             serializer.save(user=request.user)
             return Response(serializer.data, status=201)
         return Response(serializer.errors, status=400)
+    
+class TaskCommentDeleteView(DestroyAPIView):
+    permission_classes = [IsAuthenticated]
+
+    def get_object(self):
+        task_id = self.kwargs["task_id"]
+        comment_id = self.kwargs["comment_id"]
+        return get_object_or_404(
+            Comment,
+            id=comment_id,
+            task_id=task_id,
+            user=self.request.user         
+            )
