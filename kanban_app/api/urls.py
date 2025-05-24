@@ -7,10 +7,10 @@ router.register(r'boards', BoardViewSet, basename='board')
 router.register(r'columns', ColumnViewSet, basename='column')
 router.register(r'tasks', TaskViewSet, basename='task')
 router.register(r'comments', CommentViewSet, basename='comment')
-router.register(r'comments', EmailCheckView, basename='email-check')
-router.register(r'comments', TaskCommentListView, basename='task-comments')
-router.register(r'comments', TaskCommentCreateView, basename='task-comments-post')
 
 urlpatterns = [
     path("tasks/assigned-to-me/", TasksAssignedToMeView.as_view(), name="tasks-assigned-to-me"),
+    path("tasks/<int:task_id>/comments/", TaskCommentListView.as_view(), name="task-comments"),
+    path("tasks/<int:task_id>/comments/", TaskCommentCreateView.as_view(), name="task-comments-post"),
+    path("email-check/", EmailCheckView.as_view(), name="email-check"),
 ] + router.urls
