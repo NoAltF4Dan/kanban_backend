@@ -1,36 +1,37 @@
 # Kanban Backend
 
-This is the backend for **KanMind**, a Kanban-style task management system.  
-It is built with **Django** and **Django REST Framework** and provides a RESTful API for managing users, boards, tasks, and comments.
+This is the backend for a Kanban-style task management system, built with Django and Django REST Framework.
 
----
-
-## 🚀 Features
-
-- User registration and authentication
-- Create and manage project boards
-- Assign and review tasks
-- Comment on tasks
-- Role-based permissions
-- Clean API design based on REST principles
-
----
-
-## 🛠️ Tech Stack
-
-- Python 3.10+
-- Django
-- Django REST Framework
-- SQLite (default, switchable)
-- Token-based authentication
-
----
-
-## ⚙️ Setup Instructions
-
-### 1. Clone the repository
+## 🚀 Quickstart
 
 ```bash
 git clone https://github.com/NoAltF4Dan/kanban-backend.git
 cd kanban-backend
+python -m venv venv
+source venv/bin/activate  # or venv\Scripts\activate on Windows
+pip install -r requirements.txt
+python manage.py migrate
+python manage.py runserver
+```
+
+Visit: http://127.0.0.1:8000/
+
+## 📦 Features
+
+- User authentication
+- Boards with members
+- Tasks with priorities, status, assignee/reviewer
+- Comments on tasks
+- Role-based permissions
+
+## ⚙️ Tech Stack
+
+- Python 3
+- Django
+- Django REST Framework
+- SQLite (default)
+
+## ✅ Status
+
+✔️ Fully functional – ready to use.
 
