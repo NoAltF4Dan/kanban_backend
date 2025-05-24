@@ -82,7 +82,7 @@ class SimpleUserSerializer(serializers.ModelSerializer):
         return obj.get_full_name()     
 
 class TaskSerializer(serializers.ModelSerializer):
-    board = serializers.PrimaryKeyRelatedField(read_only=True)
+    board = serializers.PrimaryKeyRelatedField(queryset=Board.objects.all(),required=True)
     column = serializers.PrimaryKeyRelatedField(queryset=Column.objects.all())
 
     assignee = SimpleUserSerializer(read_only=True)
@@ -121,21 +121,27 @@ class TaskSerializer(serializers.ModelSerializer):
         board = data.get("board")
         assignee = data.get("assignee")
         reviewer = data.get("reviewer")
-        user = self.context.get("request").user
+        
+        if not board:
+            raise serializers.ValidationError({"board": "Board is required and must be provided."})
 
         if assignee and assignee not in board.members.all() and assignee != board.owner:
-            raise serializers.ValidationError("Assignee muss Mitglied des Boards sein.")
+            raise serializers.ValidationError("Assignee must be a board member or owner.")
 
         if reviewer and reviewer not in board.members.all() and reviewer != board.owner:
-            raise serializers.ValidationError("Reviewer muss Mitglied des Boards sein.")
+            raise serializers.ValidationError("Reviewer must be a board member or owner.")
+
         return data
 
     
 class BoardDetailSerializer(BoardSerializer):
     members_data = SimpleUserSerializer(source="members", many=True, read_only=True)
-    tasks = TaskSerializer(many=True, read_only=True)
+    tasks = serializers.SerializerMethodField()
     owner_data = SimpleUserSerializer(source="owner", read_only=True)
 
     class Meta(BoardSerializer.Meta):
         fields = BoardSerializer.Meta.fields + ["owner_data", "members_data", "tasks"]
 
+    def get_tasks(self, obj):
+        tasks = Task.objects.filter(column__board=obj)
+        return TaskSerializer(tasks, many=True).data

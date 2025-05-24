@@ -58,7 +58,9 @@ class Task(models.Model):
                   )
     column      = models.ForeignKey(
                       Column,
-                      on_delete=models.CASCADE,
+                      on_delete=models.SET_NULL,
+                      null=True,  
+                      blank=True,
                       related_name="tasks"
                   )
     assignee    = models.ForeignKey(

@@ -66,45 +66,7 @@ class ColumnViewSet(ModelViewSet):
         instance.delete()
 
 class TaskViewSet(ModelViewSet):
-    serializer_class    = TaskSerializer
-    permission_classes  = [IsAuthenticated]
-
-    def get_queryset(self):
-        user = self.request.user
-        return Task.objects.filter(
-            Q(board__owner=user) | Q(board__members=user)
-        )
-
-    def perform_create(self, serializer):
-        board = serializer.validated_data['board']
-        if not (board.owner == self.request.user or self.request.user in board.members.all()):
-            raise PermissionDenied("Du musst Mitglied dieses Boards sein.")
-        serializer.save()
-
-    def perform_update(self, serializer):
-        board = serializer.instance.board
-        if not (board.owner == self.request.user or self.request.user in board.members.all()):
-            raise PermissionDenied("Du musst Mitglied dieses Boards sein.")
-        serializer.save()
-
-    def perform_destroy(self, instance):
-        user = self.request.user
-        board = instance.board
-        if not (user == board.owner or user == instance.assignee):
-            raise PermissionDenied("Nur der Ersteller oder Board-Owner darf löschen.")
-        instance.delete()
-
-    @action(detail=False, methods=['get'], url_path='assigned-to-me')
-    def assigned_to_me(self, request):
-        tasks = self.get_queryset().filter(assignee=request.user)
-        return Response(self.get_serializer(tasks, many=True).data)
-
-    @action(detail=False, methods=['get'], url_path='reviewing')
-    def reviewing(self, request):
-        tasks = self.get_queryset().filter(reviewer=request.user)
-        return Response(self.get_serializer(tasks, many=True).data)
-   
-    serializer_class   = TaskSerializer
+    serializer_class = TaskSerializer
     permission_classes = [IsAuthenticated]
 
     def get_queryset(self):
@@ -162,14 +124,6 @@ class EmailCheckView(APIView):
             })
         except User.DoesNotExist:
             return Response({}, status=200)
-                
-class TasksAssignedToMeView(APIView):
-    permission_classes = [IsAuthenticated]
-
-    def get(self, request):
-        tasks = Task.objects.filter(assignee=request.user)
-        serializer = TaskSerializer(tasks, many=True)
-        return Response(serializer.data)
         
 class CommentViewSet(ModelViewSet):
     queryset = Comment.objects.all()
