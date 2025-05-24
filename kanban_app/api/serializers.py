@@ -82,7 +82,7 @@ class SimpleUserSerializer(serializers.ModelSerializer):
         return obj.get_full_name()     
 
 class TaskSerializer(serializers.ModelSerializer):
-    board = serializers.PrimaryKeyRelatedField(queryset=Board.objects.all(), read_only=True)
+    board = serializers.PrimaryKeyRelatedField(read_only=True)
     column = serializers.PrimaryKeyRelatedField(queryset=Column.objects.all())
 
     assignee = SimpleUserSerializer(read_only=True)
