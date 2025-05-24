@@ -82,8 +82,8 @@ class SimpleUserSerializer(serializers.ModelSerializer):
         return obj.get_full_name()     
 
 class TaskSerializer(serializers.ModelSerializer):
-    board = serializers.PrimaryKeyRelatedField(queryset=Board.objects.all(),required=True)
-    column = serializers.PrimaryKeyRelatedField(queryset=Column.objects.all())
+    board = serializers.PrimaryKeyRelatedField(queryset=Board.objects.all(), required=True)
+    status = serializers.ChoiceField(choices=Task.STATUS_CHOICES)
 
     assignee = SimpleUserSerializer(read_only=True)
     reviewer = SimpleUserSerializer(read_only=True)
@@ -108,10 +108,9 @@ class TaskSerializer(serializers.ModelSerializer):
     class Meta:
         model = Task
         fields = [
-            'id', 'board', 'title', 'description',
-            'status', 'priority',
-            'assignee', 'reviewer', 'assignee_id', 'reviewer_id',
-            'due_date', 'comments_count'
+            'id', 'board', 'status', 'title', 'description',
+            'priority', 'assignee', 'reviewer',
+            'assignee_id', 'reviewer_id', 'due_date', 'comments_count'
         ]
 
     def get_comments_count(self, obj):
@@ -121,7 +120,7 @@ class TaskSerializer(serializers.ModelSerializer):
         board = data.get("board")
         assignee = data.get("assignee")
         reviewer = data.get("reviewer")
-        
+
         if not board:
             raise serializers.ValidationError({"board": "Board is required and must be provided."})
 
