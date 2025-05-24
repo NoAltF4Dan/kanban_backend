@@ -5,6 +5,7 @@ from django.contrib.auth.models import User
 STATUS_CHOICES = [
     ("todo", "To Do"),
     ("in_progress", "In Progress"),
+    ("review", "Review"),
     ("done", "Done"),
 ]
 
@@ -47,43 +48,14 @@ class Column(models.Model):
     
     
 class Task(models.Model):
-    title       = models.CharField(max_length=50)
-    description = models.CharField(max_length=255, blank=True, null=True)
-    due_date    = models.DateTimeField()
-    status      = models.CharField(max_length=20, choices=STATUS_CHOICES, default="todo")
-    board       = models.ForeignKey(
-                      Board,
-                      on_delete=models.CASCADE,
-                      related_name="tasks"
-                  )
-    column      = models.ForeignKey(
-                      Column,
-                      on_delete=models.SET_NULL,
-                      null=True,  
-                      blank=True,
-                      related_name="tasks"
-                  )
-    assignee    = models.ForeignKey(
-                      User,
-                      on_delete=models.SET_NULL,
-                      null=True,
-                      blank=True,
-                      related_name="tasks"
-                  )
-    reviewer    = models.ForeignKey(
-                      User,
-                      on_delete=models.SET_NULL,
-                      null=True,
-                      blank=True,
-                      related_name="reviews"
-                  )
-    priority    = models.CharField(
-                      max_length=10,
-                      choices=PRIORITY_CHOICES,
-                      default="medium"
-                  )
-    created_at  = models.DateTimeField(auto_now_add=True)
-    updated_at  = models.DateTimeField(auto_now=True)
+    board = models.ForeignKey(Board, on_delete=models.CASCADE, related_name="tasks")
+    title = models.CharField(max_length=100)
+    description = models.TextField(blank=True)
+    status = models.CharField(max_length=20, choices=STATUS_CHOICES, default="to-do")
+    priority = models.CharField(max_length=10, choices=PRIORITY_CHOICES, default="medium")
+    assignee = models.ForeignKey(User, null=True, blank=True, on_delete=models.SET_NULL, related_name="assigned_tasks")
+    reviewer = models.ForeignKey(User, null=True, blank=True, on_delete=models.SET_NULL, related_name="review_tasks")
+    due_date = models.DateField(null=True, blank=True)
 
     class Meta:
         ordering = ['due_date']
