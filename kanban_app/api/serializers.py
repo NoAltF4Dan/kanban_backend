@@ -24,13 +24,13 @@ class BoardSerializer(serializers.ModelSerializer):
         many=True,
         queryset=User.objects.all()
     )
-    member_count          = serializers.SerializerMethodField()
-    ticket_count          = serializers.SerializerMethodField()
-    tasks_to_do_count     = serializers.SerializerMethodField()
+    member_count = serializers.SerializerMethodField()
+    ticket_count = serializers.SerializerMethodField()
+    tasks_to_do_count = serializers.SerializerMethodField()
     tasks_high_prio_count = serializers.SerializerMethodField()
 
     class Meta:
-        model  = Board
+        model = Board
         fields = [
             'id',
             'title',
@@ -54,7 +54,7 @@ class BoardSerializer(serializers.ModelSerializer):
 
     def get_tasks_high_prio_count(self, obj):
         return obj.tasks.filter(priority="high").count()
-     
+        
 class ColumnSerializer(serializers.ModelSerializer):
     position = serializers.IntegerField(source="order")
     board    = serializers.PrimaryKeyRelatedField(queryset=Board.objects.all())
@@ -70,6 +70,7 @@ class ColumnSerializer(serializers.ModelSerializer):
         
 class CommentSerializer(serializers.ModelSerializer):
     user = serializers.ReadOnlyField(source='user.username')
+    task = serializers.PrimaryKeyRelatedField(read_only=True)
 
     class Meta:
         model = Comment
@@ -135,12 +136,11 @@ class TaskSerializer(serializers.ModelSerializer):
             raise serializers.ValidationError("Reviewer must be a board member or owner.")
 
         return data
-
-    
+  
 class BoardDetailSerializer(BoardSerializer):
+    owner_data = SimpleUserSerializer(source="owner", read_only=True)
     members_data = SimpleUserSerializer(source="members", many=True, read_only=True)
     tasks = serializers.SerializerMethodField()
-    owner_data = SimpleUserSerializer(source="owner", read_only=True)
 
     class Meta(BoardSerializer.Meta):
         fields = BoardSerializer.Meta.fields + ["owner_data", "members_data", "tasks"]

@@ -1,11 +1,11 @@
 from django.shortcuts import render, get_object_or_404
-from rest_framework import status, generics
+from rest_framework import status, generics, permissions
 from rest_framework.generics import DestroyAPIView
 from django.db.models import Q
 from rest_framework.decorators import action
 from rest_framework.exceptions import PermissionDenied
 
-from .serializers import CommentSerializer, BoardSerializer, ColumnSerializer, TaskSerializer
+from .serializers import BoardDetailSerializer, CommentSerializer, BoardSerializer, ColumnSerializer, TaskSerializer
 from kanban_app.models import Comment, Board, Column, Task
 from .permissions import IsOwnerOrReadOnly
 
@@ -16,8 +16,8 @@ from rest_framework.viewsets import ModelViewSet
 from rest_framework.permissions import IsAuthenticated
 
 class BoardViewSet(ModelViewSet):
-    serializer_class   = BoardSerializer
     permission_classes = [IsAuthenticated, IsOwnerOrReadOnly]
+    queryset = Board.objects.all()
 
     def get_queryset(self):
         user = self.request.user
@@ -30,9 +30,8 @@ class BoardViewSet(ModelViewSet):
 
     def get_serializer_class(self):
         if self.action in ["retrieve", "update", "partial_update"]:
-            from .serializers import BoardDetailSerializer
             return BoardDetailSerializer
-        return super().get_serializer_class()
+        return BoardSerializer
 
 class ColumnViewSet(ModelViewSet):
     serializer_class    = ColumnSerializer
@@ -139,49 +138,30 @@ class CommentViewSet(ModelViewSet):
             raise PermissionDenied("Du darfst nur deine eigenen Kommentare löschen.")
         instance.delete()
 
+class TaskCommentListCreateView(generics.ListCreateAPIView):
+    serializer_class = CommentSerializer
+    permission_classes = [permissions.IsAuthenticated]
 
-class TaskCommentListView(APIView):
-    permission_classes = [IsAuthenticated]
+    def get_queryset(self):
+        task_id = self.kwargs["task_id"]
+        task = get_object_or_404(Task, pk=task_id)
+        user = self.request.user
 
-    def get(self, request, task_id):
-        try:
-            task = Task.objects.get(pk=task_id)
-        except Task.DoesNotExist:
-            return Response({"detail": "Task nicht gefunden."}, status=404)
+        if not (user == task.board.owner or user in task.board.members.all()):
+            raise PermissionDenied("Zugriff verweigert.")
 
-        board = task.board
-        user = request.user
-        if not (user == board.owner or user in board.members.all()):
-            return Response({"detail": "Zugriff verweigert."}, status=403)
+        return task.comments.order_by("created_at")
 
-        comments = task.comments.order_by("created_at")
-        serializer = CommentSerializer(comments, many=True)
-        return Response(serializer.data)
-    
-class TaskCommentCreateView(APIView):
-    permission_classes = [IsAuthenticated]
+    def perform_create(self, serializer):
+        task_id = self.kwargs["task_id"]
+        task = get_object_or_404(Task, pk=task_id)
+        user = self.request.user
 
-    def post(self, request, task_id):
-        try:
-            task = Task.objects.get(pk=task_id)
-        except Task.DoesNotExist:
-            return Response({"detail": "Task nicht gefunden."}, status=404)
+        if not (user == task.board.owner or user in task.board.members.all()):
+            raise PermissionDenied("Zugriff verweigert.")
 
-        board = task.board
-        user = request.user
-
-        if not (user == board.owner or user in board.members.all()):
-            return Response({"detail": "Zugriff verweigert."}, status=403)
-
-        data = request.data.copy()
-        data["task"] = task.id
-
-        serializer = CommentSerializer(data=data)
-        if serializer.is_valid():
-            serializer.save(user=request.user)
-            return Response(serializer.data, status=201)
-        return Response(serializer.errors, status=400)
-    
+        serializer.save(task=task, user=user)
+        
 class TaskCommentDeleteView(DestroyAPIView):
     permission_classes = [IsAuthenticated]
 
