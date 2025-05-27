@@ -1,19 +1,23 @@
-from django.shortcuts import render, get_object_or_404
-from rest_framework import status, generics, permissions
-from rest_framework.generics import DestroyAPIView
+from django.shortcuts import get_object_or_404
+from django.http import Http404
 from django.db.models import Q
-from rest_framework.decorators import action
-from rest_framework.exceptions import PermissionDenied
+from django.contrib.auth.models import User
 
-from .serializers import BoardDetailSerializer, CommentSerializer, BoardSerializer, ColumnSerializer, TaskSerializer
+from rest_framework import generics, permissions, status
+from rest_framework.response import Response
+from rest_framework.views import APIView
+from rest_framework.viewsets import ModelViewSet
+from rest_framework.decorators import action
+from rest_framework.permissions import IsAuthenticated
+from rest_framework.exceptions import PermissionDenied
+from rest_framework.generics import DestroyAPIView
+
+from .serializers import (
+    BoardSummarySerializer, BoardDetailSerializer, CommentSerializer,
+    BoardSerializer, ColumnSerializer, TaskSerializer
+)
 from kanban_app.models import Comment, Board, Column, Task
 from .permissions import IsOwnerOrReadOnly
-
-from rest_framework.views import APIView
-from django.contrib.auth.models import User
-from rest_framework.response import Response
-from rest_framework.viewsets import ModelViewSet
-from rest_framework.permissions import IsAuthenticated
 
 class BoardViewSet(ModelViewSet):
     permission_classes = [IsAuthenticated, IsOwnerOrReadOnly]
@@ -24,14 +28,36 @@ class BoardViewSet(ModelViewSet):
         return Board.objects.filter(
             Q(owner=user) | Q(members=user)
         ).distinct()
-
+    
     def perform_create(self, serializer):
         serializer.save(owner=self.request.user)
 
+    def perform_update(self, serializer):
+        board = self.get_object()
+
+        if self.request.user != board.owner:
+            raise PermissionDenied("Nur der Eigentümer darf Mitglieder aktualisieren.")
+
+        members = self.request.data.get("members", None)
+
+        instance = serializer.save()
+
+        if members is not None:
+            instance.members.set(members)
+
+        instance.save()
+        
+    def perform_destroy(self, instance):
+        if self.request.user != instance.owner:
+            raise PermissionDenied("Nur der Eigentümer darf dieses Board löschen.")
+        instance.delete()
+
+
     def get_serializer_class(self):
-        if self.action in ["retrieve", "update", "partial_update"]:
+        if self.action == "retrieve":
             return BoardDetailSerializer
-        return BoardSerializer
+        return BoardSummarySerializer 
+
 
 class ColumnViewSet(ModelViewSet):
     serializer_class    = ColumnSerializer
@@ -73,7 +99,7 @@ class TaskViewSet(ModelViewSet):
         user = self.request.user
         return Task.objects.filter(
             Q(board__owner=user) | Q(board__members=user)
-        )
+        ).distinct()
 
     def _check_board_access(self, board):
         user = self.request.user
@@ -86,24 +112,41 @@ class TaskViewSet(ModelViewSet):
         serializer.save()
 
     def perform_update(self, serializer):
-        board = serializer.instance.board
+        board = serializer.validated_data.get("board") or serializer.instance.board
         self._check_board_access(board)
         serializer.save()
+
 
     def perform_destroy(self, instance):
         board = instance.board
         self._check_board_access(board)
         instance.delete()
 
+    def retrieve(self, request, *args, **kwargs):
+        queryset = self.get_queryset()
+        instance = queryset.filter(pk=kwargs["pk"]).first()
+        if not instance:
+            raise Http404("Task not found.")
+        serializer = self.get_serializer(instance)
+        return Response(serializer.data)
+
     @action(detail=False, methods=['get'], url_path='assigned-to-me')
     def assigned_to_me(self, request):
-        tasks = self.get_queryset().filter(assignee=request.user)
+        tasks = self.get_queryset().filter(assignee=request.user).distinct()
         serializer = self.get_serializer(tasks, many=True)
         return Response(serializer.data)
 
     @action(detail=False, methods=['get'], url_path='reviewing')
     def reviewing(self, request):
-        tasks = self.get_queryset().filter(reviewer=request.user)
+        tasks = self.get_queryset().filter(reviewer=request.user).distinct()
+        serializer = self.get_serializer(tasks, many=True)
+        return Response(serializer.data)
+    
+    @action(detail=False, methods=['get'], url_path='assigned-or-reviewing')
+    def assigned_or_reviewing(self, request):
+        tasks = self.get_queryset().filter(
+            Q(assignee=request.user) | Q(reviewer=request.user)
+        ).distinct()
         serializer = self.get_serializer(tasks, many=True)
         return Response(serializer.data)
    
@@ -124,19 +167,6 @@ class EmailCheckView(APIView):
             })
         except User.DoesNotExist:
             return Response({}, status=200)
-        
-class CommentViewSet(ModelViewSet):
-    queryset = Comment.objects.all()
-    serializer_class = CommentSerializer
-    permission_classes = [IsAuthenticated]
-
-    def perform_create(self, serializer):
-        serializer.save(user=self.request.user)
-        
-    def perform_destroy(self, instance):
-        if instance.user != self.request.user:
-            raise PermissionDenied("Du darfst nur deine eigenen Kommentare löschen.")
-        instance.delete()
 
 class TaskCommentListCreateView(generics.ListCreateAPIView):
     serializer_class = CommentSerializer
@@ -144,7 +174,10 @@ class TaskCommentListCreateView(generics.ListCreateAPIView):
 
     def get_queryset(self):
         task_id = self.kwargs["task_id"]
-        task = get_object_or_404(Task, pk=task_id)
+        task = Task.objects.filter(pk=task_id).first()
+        if not task:
+            raise Http404("Task not found.")
+
         user = self.request.user
 
         if not (user == task.board.owner or user in task.board.members.all()):
