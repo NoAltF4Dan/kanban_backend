@@ -14,7 +14,7 @@ from rest_framework.generics import DestroyAPIView
 
 from .serializers import (
     BoardSummarySerializer, BoardDetailSerializer, CommentSerializer,
-    BoardSerializer, ColumnSerializer, TaskSerializer
+    ColumnSerializer, TaskSerializer
 )
 from kanban_app.models import Comment, Board, Column, Task
 from .permissions import IsOwnerOrReadOnly
