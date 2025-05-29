@@ -128,7 +128,7 @@ class CommentSerializer(serializers.ModelSerializer):
         read_only_fields = ['id', 'created_at', 'author']
 
     def get_author(self, obj):
-        return SimpleUserSerializer(obj.user).data if obj.user else None
+        return obj.user.get_full_name() if obj.user else None
 
 class SimpleUserSerializer(serializers.ModelSerializer):
     fullname = serializers.SerializerMethodField()
@@ -143,15 +143,15 @@ class SimpleUserSerializer(serializers.ModelSerializer):
 class TaskSerializer(serializers.ModelSerializer):
     assignee = serializers.SerializerMethodField()
     reviewer = serializers.SerializerMethodField()
+
     board = serializers.PrimaryKeyRelatedField(
-        queryset=Board.objects.all(),
-        write_only=True
+        queryset=Board.objects.all()
     )
     assignee_id = serializers.PrimaryKeyRelatedField(
-        queryset=User.objects.all(), write_only=True, required=False, allow_null=True, source='assignee'
+        source='assignee', queryset=User.objects.all(), write_only=True
     )
     reviewer_id = serializers.PrimaryKeyRelatedField(
-        queryset=User.objects.all(), write_only=True, required=False, allow_null=True, source='reviewer'
+        source='reviewer', queryset=User.objects.all(), write_only=True
     )
 
     comments_count = serializers.SerializerMethodField()
@@ -159,12 +159,12 @@ class TaskSerializer(serializers.ModelSerializer):
     class Meta:
         model = Task
         fields = [
-            'id', 'board', 'title', 'description', 'status',
-            'priority', 'assignee', 'reviewer',
-            'assignee_id', 'reviewer_id',
+            'id', 'board', 'title', 'description', 'status', 'priority',
+            'assignee_id', 'assignee',
+            'reviewer_id', 'reviewer',
             'due_date', 'comments_count'
         ]
-        read_only_fields = ['id', 'comments_count']
+        read_only_fields = ['id', 'assignee', 'reviewer', 'comments_count']
 
     def get_assignee(self, obj):
         return SimpleUserSerializer(obj.assignee).data if obj.assignee else None
@@ -193,19 +193,14 @@ class TaskSerializer(serializers.ModelSerializer):
 
   
 class BoardDetailSerializer(serializers.ModelSerializer):
-    owner_id = serializers.ReadOnlyField(source="owner.id")
-    members = SimpleUserSerializer(many=True, read_only=True)
-    tasks = serializers.SerializerMethodField()
+    owner_data = SimpleUserSerializer(source="owner", read_only=True)
+    members_data = SimpleUserSerializer(source="members", many=True, read_only=True)
 
     class Meta:
         model = Board
         fields = [
             "id",
             "title",
-            "owner_id",
-            "members",
-            "tasks"
+            "owner_data",
+            "members_data"
         ]
-
-    def get_tasks(self, obj):
-        return TaskSerializer(obj.tasks.all(), many=True).data

@@ -54,10 +54,9 @@ class BoardViewSet(ModelViewSet):
 
 
     def get_serializer_class(self):
-        if self.action == "retrieve":
+        if self.action in ["retrieve", "update", "partial_update"]:
             return BoardDetailSerializer
-        return BoardSummarySerializer 
-
+        return BoardSummarySerializer
 
 class ColumnViewSet(ModelViewSet):
     serializer_class    = ColumnSerializer
