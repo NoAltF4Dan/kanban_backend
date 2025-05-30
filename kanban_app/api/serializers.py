@@ -190,17 +190,3 @@ class TaskSerializer(serializers.ModelSerializer):
             raise serializers.ValidationError({"reviewer": "Reviewer must be a board member or the owner."})
 
         return data
-
-  
-class BoardDetailSerializer(serializers.ModelSerializer):
-    owner_data = SimpleUserSerializer(source="owner", read_only=True)
-    members_data = SimpleUserSerializer(source="members", many=True, read_only=True)
-
-    class Meta:
-        model = Board
-        fields = [
-            "id",
-            "title",
-            "owner_data",
-            "members_data"
-        ]
